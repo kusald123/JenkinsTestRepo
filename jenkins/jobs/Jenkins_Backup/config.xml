@@ -1,0 +1,131 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <com.sonyericsson.rebuild.RebuildSettings plugin="rebuild@1.32">
+      <autoRebuild>false</autoRebuild>
+      <rebuildDisabled>false</rebuildDisabled>
+    </com.sonyericsson.rebuild.RebuildSettings>
+  </properties>
+  <scm class="hudson.plugins.git.GitSCM" plugin="git@4.7.1">
+    <configVersion>2</configVersion>
+    <userRemoteConfigs>
+      <hudson.plugins.git.UserRemoteConfig>
+        <url>https://github.com/kusald123/JenkinsTestRepo.git</url>
+      </hudson.plugins.git.UserRemoteConfig>
+    </userRemoteConfigs>
+    <branches>
+      <hudson.plugins.git.BranchSpec>
+        <name>main</name>
+      </hudson.plugins.git.BranchSpec>
+    </branches>
+    <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+    <submoduleCfg class="empty-list"/>
+    <extensions/>
+  </scm>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>#!/bin/bash -xe
+
+readonly JENKINS_HOME=&quot;~/.jenkins/&quot;
+readonly DEST_FILE=&quot;.&quot;
+readonly CUR_DIR=$(cd $(dirname ${BASH_SOURCE:-$0}); pwd)
+readonly TMP_DIR=&quot;${CUR_DIR}&quot;
+readonly ARC_NAME=&quot;jenkins-backup&quot;
+readonly ARC_DIR=&quot;${TMP_DIR}/${ARC_NAME}&quot;
+readonly TMP_TAR_NAME=&quot;${TMP_DIR}/archive.tar.gz&quot;
+
+function backup_jobs() {
+  local run_in_path=&quot;$1&quot;
+  local rel_depth=${run_in_path#${JENKINS_HOME}/jobs/}
+
+  if [ -d &quot;${run_in_path}&quot; ]; then
+    cd &quot;${run_in_path}&quot;
+
+    find . -maxdepth 1 -type d | while read job_name; do
+      [ &quot;${job_name}&quot; = &quot;.&quot; ] &amp;&amp; continue
+      [ &quot;${job_name}&quot; = &quot;..&quot; ] &amp;&amp; continue
+      [ -d &quot;${JENKINS_HOME}/jobs/${rel_depth}/${job_name}&quot; ] &amp;&amp; mkdir -p &quot;${ARC_DIR}/jobs/${rel_depth}/${job_name}/&quot;
+      find &quot;${JENKINS_HOME}/jobs/${rel_depth}/${job_name}/&quot; -maxdepth 1  \( -name &quot;*.xml&quot; -o -name &quot;nextBuildNumber&quot; \) -print0 | xargs -0 -I {} cp {} &quot;${ARC_DIR}/jobs/${rel_depth}/${job_name}/&quot;
+      if [ -f &quot;${JENKINS_HOME}/jobs/${rel_depth}/${job_name}/config.xml&quot; ] &amp;&amp; [ &quot;$(grep -c &quot;com.cloudbees.hudson.plugins.folder.Folder&quot; &quot;${JENKINS_HOME}/jobs/${rel_depth}/${job_name}/config.xml&quot;)&quot; -ge 1 ] ; then
+        #echo &quot;Folder! $JENKINS_HOME/jobs/$rel_depth/$job_name/jobs&quot;
+        backup_jobs &quot;${JENKINS_HOME}/jobs/${rel_depth}/${job_name}/jobs&quot;
+      else
+        true
+        #echo &quot;Job! $JENKINS_HOME/jobs/$rel_depth/$job_name&quot;
+      fi
+    done
+    #echo &quot;Done in $(pwd)&quot;
+    cd -
+  fi
+}
+
+function commitPush() {
+  git add .
+  git commit -a -m &quot;Jenkins backup 2021/07/20&quot;
+  git push
+}
+
+function moveToRepo() {
+  rm -rf &quot;${CUR_DIR}/JenkinsTestRepo/${ARC_NAME}&quot;
+  mv -f &quot;${ARC_DIR}&quot; &quot;${CUR_DIR}/JenkinsTestRepo&quot;
+  cd &quot;${CUR_DIR}/JenkinsTestRepo&quot;
+}
+
+function main() {
+  if [ -z &quot;${JENKINS_HOME}&quot; -o -z &quot;${DEST_FILE}&quot; ] ; then
+    usage &gt;&amp;2
+    exit 1
+  fi
+
+  rm -rf &quot;${ARC_DIR}&quot; &quot;{$TMP_TAR_NAME}&quot;
+  for plugin in plugins jobs users secrets nodes; do
+    mkdir -p &quot;${ARC_DIR}/${plugin}&quot;
+  done
+
+  cp &quot;${JENKINS_HOME}/&quot;*.xml &quot;${ARC_DIR}&quot;
+
+  cp &quot;${JENKINS_HOME}/plugins/&quot;*.[hj]pi &quot;${ARC_DIR}/plugins&quot;
+  hpi_pinned_count=$(find ${JENKINS_HOME}/plugins/ -name *.hpi.pinned | wc -l)
+  jpi_pinned_count=$(find ${JENKINS_HOME}/plugins/ -name *.jpi.pinned | wc -l)
+  if [ ${hpi_pinned_count} -ne 0 -o ${jpi_pinned_count} -ne 0 ]; then
+    cp &quot;${JENKINS_HOME}/plugins/&quot;*.[hj]pi.pinned &quot;${ARC_DIR}/plugins&quot;
+  fi
+
+  if [ &quot;$(ls -A ${JENKINS_HOME}/users/)&quot; ]; then
+    cp -R &quot;${JENKINS_HOME}/users/&quot;* &quot;${ARC_DIR}/users&quot;
+  fi
+
+  if [ &quot;$(ls -A ${JENKINS_HOME}/secrets/)&quot; ] ; then
+    cp -R &quot;${JENKINS_HOME}/secrets/&quot;* &quot;${ARC_DIR}/secrets&quot;
+  fi
+
+  if [ &quot;$(ls -A ${JENKINS_HOME}/nodes/)&quot; ] ; then
+    cp -R &quot;${JENKINS_HOME}/nodes/&quot;* &quot;${ARC_DIR}/nodes&quot;
+  fi
+
+  if [ &quot;$(ls -A ${JENKINS_HOME}/jobs/)&quot; ] ; then
+    backup_jobs ${JENKINS_HOME}/jobs/
+  fi
+  
+
+  exit 0
+}
+
+
+main
+</command>
+      <configuredLocalRules/>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers/>
+  <buildWrappers/>
+</project>
