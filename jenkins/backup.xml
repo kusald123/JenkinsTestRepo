@@ -1,0 +1,17 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<org.jvnet.hudson.plugins.backup.BackupConfig plugin="backup@1.6.1">
+  <targetDirectory>/Users/krodrigo/Desktop/Test</targetDirectory>
+  <verbose>false</verbose>
+  <xmlOnly>true</xmlOnly>
+  <noShutdown>true</noShutdown>
+  <fileNameTemplate>backup_@date@.@extension@</fileNameTemplate>
+  <archiveType>ZIP</archiveType>
+  <keepWorkspaces>true</keepWorkspaces>
+  <keepFingerprints>true</keepFingerprints>
+  <keepBuilds>true</keepBuilds>
+  <keepArchives>true</keepArchives>
+  <jobIncludes></jobIncludes>
+  <jobExcludes></jobExcludes>
+  <caseSensitive>false</caseSensitive>
+  <customExclusions/>
+</org.jvnet.hudson.plugins.backup.BackupConfig>
